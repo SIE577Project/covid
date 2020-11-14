@@ -1,27 +1,66 @@
-library(shiny)# How we create the app.
-library(shinycssloaders) # Adds spinner icon to loading outputs.
-library(shinydashboard) # The layout used for the ui page.
-library(leaflet) # Map making. Leaflet is more supported for shiny.
-library(dplyr)  
+library(tidyr)
+library(shinyWidgets)
+library(eeptools)
 
-#---When running this app on your computer, you will likely have to change the file path. I'm not sure how it's going to work out, honestly, so let me know when you get
-#---a chance to run it on your R console------
-setwd("C:\\Users\\t_kna\\Documents\\R_COVID_APP")
+#### Need to manipulate original tables to display variables in each category correctly on dropdown menus,  
+####Removes extra columns with !c command telling it NOT to select those columns in new dataframe
+####Allergies----------------
+allergies_by_variable <- Allergies %>% select(!c("START", "STOP", "ENCOUNTER", "CODE"))
+######Changes rows under the DESCRIPTION column to column headers with patients as dependent variable in new dataframe
+allergies_by_variable_wider <- allergies_by_variable %>% pivot_wider(names_from = DESCRIPTION, values_from = PATIENT)
 
-Allergies <- read.csv("C:\\Users\\t_kna\\Documents\\R_COVID_APP\\data\\merged_Allergies.csv")
-Careplans <- read.csv("C:\\Users\\t_kna\\Documents\\R_COVID_APP\\data\\merged_Careplans.csv")
-Conditions <- read.csv("C:\\Users\\t_kna\\Documents\\R_COVID_APP\\data\\merged_Conditions.csv")
-Devices <- read.csv("C:\\Users\\t_kna\\Documents\\R_COVID_APP\\data\\merged_Devices.csv")
-Encounters <- read.csv("C:\\Users\\t_kna\\Documents\\R_COVID_APP\\data\\merged_Encounters.csv")
-Imaging_Studies <- read.csv("C:\\Users\\t_kna\\Documents\\R_COVID_APP\\data\\merged_Imaging_Studies.csv")
-Immunizations <- read.csv("C:\\Users\\t_kna\\Documents\\R_COVID_APP\\data\\merged_Immunizations.csv")
-Medications <- read.csv("C:\\Users\\t_kna\\Documents\\R_COVID_APP\\data\\merged_Medications.csv")
-Observations <- read.csv("C:\\Users\\t_kna\\Documents\\R_COVID_APP\\data\\merged_Observations.csv")
-Organizations <- read.csv("C:\\Users\\t_kna\\Documents\\R_COVID_APP\\data\\merged_Organizations.csv")
-Patients <- read.csv("C:\\Users\\t_kna\\Documents\\R_COVID_APP\\data\\merged_Patients.csv")
-Payers <- read.csv("C:\\Users\\t_kna\\Documents\\R_COVID_APP\\data\\merged_Payers.csv")
-Procedures <- read.csv("C:\\Users\\t_kna\\Documents\\R_COVID_APP\\data\\merged_Procedures.csv")
+####Careplans----------------------
+careplans_by_variable <- Careplans %>% select(!c("START", "STOP", "ENCOUNTER", "CODE", "Id", "REASONCODE", "REASONDESCRIPTION"))
+####
+careplans_wider <- careplans_by_variable %>% pivot_wider(names_from = DESCRIPTION, values_from = PATIENT)
 
+####Conditions----------------------
+conditions_by_variable <- Conditions %>% select(!c("START", "STOP", "ENCOUNTER", "CODE"))
+####
+conditions_wider <- conditions_by_variable %>% pivot_wider(names_from = DESCRIPTION, values_from = PATIENT)
+
+####Devices--------------------------
+devices_by_variable <- Devices %>% select(!c("START", "STOP", "ENCOUNTER", "CODE", "UDI"))
+####
+devices_wider <- devices_by_variable %>% pivot_wider(names_from = DESCRIPTION, values_from = PATIENT)
+
+####Imaging Studies-------------------
+imagingstudies_by_variable <- Imaging_Studies %>% select(!c("Id", "DATE", "ENCOUNTER", "BODYSITE_CODE", "MODALITY_CODE", "SOP_CODE", "SOP_DESCRIPTION"))
+####Combined bodysite and modality columns together so it'd list specific images on the dropdown menu (e.g. Arm Digital Radiography)
+imaging_studies_combined <- imagingstudies_by_variable %>% unite(DESCRIPTION, BODYSITE_DESCRIPTION:MODALITY_DESCRIPTION, remove = TRUE, sep = "    ")
+#####
+imagingstudies_wider <- imaging_studies_combined %>% pivot_wider(names_from = DESCRIPTION, values_from = PATIENT)
+
+####Medications-----------------------
+medications_by_variable <- Medications %>% select(!c("START", "STOP", "PAYER", "ENCOUNTER", "CODE", "BASE_COST", "PAYER_COVERAGE", "DISPENSES", "TOTALCOST", "REASONCODE", "REASONDESCRIPTION"))
+####
+medications_wider <- medications_by_variable %>% pivot_wider(names_from = DESCRIPTION, values_from = PATIENT)
+
+####Procedures------------------------
+procedures_by_variable <- Procedures %>% select(!c("DATE", "ENCOUNTER", "CODE", "BASE_COST", "REASONCODE", "REASONDESCRIPTION"))
+####
+procedures_wider <- procedures_by_variable %>% pivot_wider(names_from = DESCRIPTION, values_from = PATIENT)
+
+####Encounter (probably insurance and organization stuff too)-------------------------
+####
+#Encounters_filtered <- Encounters_Organizations_Payers %>% select(!c("Id", "START", "STOP", "PROVIDER", "ENCOUNTERCLASS", "CODE", "DESCRIPTION", "BASE_ENCOUNTER_COST", "TOTAL_CLAIM_COST", "PAYER_COVERAGE", "REASONCODE"))
+####
+
+####Payers-----------------------------
+Payers_filtered <- Payers %>% select(!c("ADDRESS", "CITY", "STATE_HEADQUARTERED", "ZIP", "PHONE", "AMOUNT_COVERED", "AMOUNT_UNCOVERED", "REVENUE", "COVERED_ENCOUNTERS", "UNCOVERED_ENCOUNTERS", "COVERED_MEDICATIONS", "UNCOVERED_MEDICATIONS", "COVERED_PROCEDURES", "UNCOVERED_PROCEDURES", "COVERED_IMMUNIZATIONS", "UNCOVERED_IMMUNIZATIONS", "UNIQUE_CUSTOMERS", "QOLS_AVG", "MEMBER_MONTHS"))
+####
+Payers_wider <- pivot_wider(Payers_filtered, names_from = "NAME", values_from = "Id")
+
+####Patients--------------------------
+Patients_filtered <- Patients %>% select(!c("SSN", "DRIVERS", "PASSPORT", "PREFIX", "FIRST", "LAST", "SUFFIX", "MAIDEN", "MARITAL", "BIRTHPLACE", "ADDRESS", "CITY", "STATE", "COUNTY", "ZIP", "HEALTHCARE_EXPENSES", "HEALTHCARE_COVERAGE"))
+####
+Patients_deadremoved <- Patients_filtered[ (Patients_filtered$DEATHDATE==""),]
+Patients_wider_sex <- pivot_wider(Patients_filtered, names_from = "GENDER", values_from = "Id")
+Patients_wider_ethnicity <- pivot_wider(Patients_filtered, names_from = c("ETHNICITY", "RACE"), values_from = "Id")
+
+PatientsBirthdates <- as.integer(gsub("-\\d\\d-\\d\\d", "", Patients_deadremoved$BIRTHDATE))
+PatientAge <- cbind(Patients_deadremoved[2], PatientsBirthdates)
+PatientAge$Age <- as.integer(2020 - PatientAge$PatientsBirthdates)
 
 
 if (interactive ())
@@ -142,6 +181,15 @@ prettyToggle(
   icon_off = icon("remove-circle", lib = "glyphicon"),
   plain = TRUE,
   value = FALSE),
+#Toggle for Race/Ethnicity
+prettyToggle(
+  inputId = "RaceEthnicityCategory",
+  label_on = "Race & Ethnicity",
+  label_off = "Race & Ethnicity",
+  icon_on = icon("ok-circle", lib = "glyphicon"),
+  icon_off = icon("remove-circle", lib = "glyphicon"),
+  plain = TRUE,
+  value = FALSE),
 #Toggle for Age
 prettyToggle(
   inputId = "AgeCategory",
@@ -183,7 +231,13 @@ prettyToggle(
                           varSelectInput("ProcedureVariables", "Procedures:", procedures_wider, multiple = TRUE),
                           
                           #multi-variable selection for Payers
-                          varSelectInput("PayerVariables", "Payers:", Payers_wider, multiple = TRUE)
+                          varSelectInput("PayerVariables", "Payers:", Payers_wider, multiple = TRUE),
+                          
+                          #multi-variable selection for Patient Sex
+                          varSelectInput("PatientSex", "Sex:", Patients_wider_sex[8:9], multiple = TRUE), 
+                          
+                          #mult-variable selection for Patient Race/Ethnicity
+                          varSelectInput("PatientRaceEthnicity", "Race & Ethnicity:", Patients_wider_ethnicity[7:16], multiple = TRUE)
                           ),),
              
 
@@ -209,6 +263,8 @@ server <- function(input, output, session) {
   hide("MedicationVariables")
   hide("ProcedureVariables")
   hide("PayerVariables")
+  hide("PatientSex")
+  hide("PatientRaceEthnicity")
   
   #Triggers the tab reveal after hitting checkbox 'submit' button
   observeEvent(input$submit_variable, {
@@ -248,19 +304,14 @@ server <- function(input, output, session) {
       show("PayerVariables", anim = TRUE, animType = "fade", time = 0.5)
     else hide("PayerVariables")
     
+    if (input$SexCategory == TRUE)
+      show("PatientSex", anim = TRUE, animType = "fade", time = 0.5)
+    else hide("PatientSex")
       
-    #if (input$variableCheckboxGroup == 3) {
-     # show("ConditionVariables", anim = TRUE, animType = "fade", time = 0.5) }
+    if (input$RaceEthnicityCategory == TRUE)
+      show("PatientRaceEthnicity", anim = TRUE, animType = "fade", time = 0.5)
+    else hide("PatientRaceEthnicity")
     
-    
-      
-    #if (input$variableCheckboxGroup == 4) {
-     # show("DeviceVariables", anim = TRUE, animType = "fade", time = 0.5) }
-    
-    
-      
-    #if (input$variableCheckboxGroup == 5) {
-     # show("ImagingVariables", anim = TRUE, animType = "fade", time = 0.5) }
     }
   )
   
